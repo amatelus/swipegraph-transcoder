@@ -1,4 +1,4 @@
-const fs = require('fs');
+const path = require('path');
 const co = require('co');
 const { exec, spawn } = require('child_process');
 const ProgressPromise = require('progress-promise');
@@ -33,6 +33,8 @@ const getMetaData = inputPath => new Promise((resolve, reject) => {
       }
     });
 
+    metaData.rotate = rotate;
+
     if (rotate % 180 === 0) {
       metaData.width = tmpWidth;
       metaData.height = tmpHeight;
@@ -48,12 +50,12 @@ const getMetaData = inputPath => new Promise((resolve, reject) => {
 
 module.exports = {
   getMetaData,
-  transcode: ({ input, output, metaData, quality, fps, cwd }) => new ProgressPromise((resolve, reject, progress) => {
+  transcode: ({ input, output, metaData, size, fps, cwd }) => new ProgressPromise((resolve, reject, progress) => {
     co(function* () {
       const { width, height, duration } = metaData || (yield getMetaData(input));
-      const MAX_LENGTH = quality || Math.max(width, height);
+      const MAX_LENGTH = size || Math.max(width, height);
 
-      const transVideo = spawn('ffmpeg', ['-i', input, '-an', '-profile:v', 'main', '-b:v', '1M', '-level', 3.1, '-vf', `fps=${fps},scale=w=${MAX_LENGTH}:h=${MAX_LENGTH}:force_original_aspect_ratio=decrease`, '-movflags', 'faststart', '-vsync', 'passthrough', output], { cwd });
+      const transVideo = spawn('ffmpeg', ['-i', input, '-q:v', 5, '-r', fps, '-threads', 0, '-vf', `scale=w=${MAX_LENGTH}:h=${MAX_LENGTH}:force_original_aspect_ratio=decrease`, path.join(output, '%d.jpg')], { cwd });
       transVideo.stderr.setEncoding('utf8');
       transVideo.stderr.on('data', (data) => {
         if (/^frame=/.test(data)) {
